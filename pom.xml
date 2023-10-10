@@ -50,20 +50,34 @@
 
     <mailingLists>
         <mailingList>
-            <name/>
-            <archive/>
+            <name>None</name>
         </mailingList>
     </mailingLists>
 
     <scm>
-        <connection></connection>
+        <connection>scm:git:https://github.com/Gonxolo/MyPlugin</connection>
+        <developerConnection>scm:git:git@github.com:Gonxolo/MyPlugin</developerConnection>
+        <tag>HEAD</tag>
+        <url>https://github.com/Gonxolo/MyPlugin</url>
     </scm>
+
+    <issueManagement>
+        <system>GitHub Issues</system>
+        <url>https://github.com/Gonxolo/MyPlugin/issues</url>
+    </issueManagement>
+
+    <ciManagement>
+        <system>None</system>
+    </ciManagement>
 
     <properties>
         <maven.compiler.source>18</maven.compiler.source>
         <maven.compiler.target>18</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <main-class>MyPlugin</main-class>
+        <package-name>org.example.plugins</package-name>
+        <main-class>org.example.plugins.MyPlugin</main-class>
+        <license.licenseName>cc0</license.licenseName>
+        <license.copyrightOwners>SCIAN-Lab</license.copyrightOwners>
     </properties>
 
     <repositories>
