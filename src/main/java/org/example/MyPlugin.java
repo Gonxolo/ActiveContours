@@ -4,6 +4,7 @@ import ij.gui.Roi;
 import ij.plugin.frame.RoiManager;
 import net.imagej.Dataset;
 import net.imagej.ImageJ;
+import net.imglib2.RandomAccess;
 import net.imglib2.img.Img;
 import net.imglib2.type.numeric.RealType;
 
@@ -18,6 +19,11 @@ import java.awt.*;
 import java.awt.event.ActionListener;
 import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
@@ -29,15 +35,25 @@ public class MyPlugin<T extends RealType<T>> implements Command {
     @Parameter
     private Dataset currentData;
 
+    private Img<T> image;
+
     @Parameter
     private UIService uiService;
 
     @Parameter
     private LogService log;
 
+    private boolean noROIs;
+
     private final JFrame frame = new JFrame("MyPluginWindow");
 
     private final String[] convergenceChoices = {"avgFracPerimeter (round)", "avgFracPerimeter (square)", "avgFracPerimeter (star)", "avgFracPerimeter (fusiform)"};
+
+    String idlParametersTemporalFilename = "C:/Users/gonza/Desktop/idl_params.dat";
+    String idlRoisTemporalFilename = "C:/Users/gonza/Desktop/idl_rois.dat";
+    String idlImageTemporalFilename = "C:/Users/gonza/Desktop/idl_tmp_img.dat";
+    String idlAdjustedRoisTemporalFilename = "C:/Users/gonza/Desktop/idl_adjusted_rois.dat";
+
 
     static class ObjectData {
         private final Map<String, Object> parameters;
@@ -86,49 +102,13 @@ public class MyPlugin<T extends RealType<T>> implements Command {
 
     }
 
-    ObjectData roundObject = new ObjectData(1.0,
-            0.001,
-            0.5,
-            1.0,
-            0.05,
-            1.0,
-            5000,
-            20,
-            0.02,
-            "avgFracPerimeter (round)");
+    ObjectData roundObject = new ObjectData(1.0, 0.001, 0.5, 1.0, 0.05, 1.0, 500, 20, 0.02, "avgFracPerimeter (round)");
 
-    ObjectData squareObject = new ObjectData(1.0,
-            0.002,
-            0.5,
-            1.0,
-            0.05,
-            1.0,
-            5001,
-            21,
-            0.02,
-            "avgFracPerimeter (square)");
+    ObjectData squareObject = new ObjectData(1.0, 0.002, 0.5, 1.0, 0.05, 1.0, 501, 21, 0.02, "avgFracPerimeter (square)");
 
-    ObjectData starObject = new ObjectData(1.0,
-            0.003,
-            0.5,
-            1.0,
-            0.05,
-            1.0,
-            5002,
-            22,
-            0.02,
-            "avgFracPerimeter (star)");
+    ObjectData starObject = new ObjectData(1.0, 0.003, 0.5, 1.0, 0.05, 1.0, 502, 22, 0.02, "avgFracPerimeter (star)");
 
-    ObjectData fusiformObject = new ObjectData(1.0,
-            0.004,
-            0.5,
-            1.0,
-            0.05,
-            1.0,
-            5003,
-            23,
-            0.02,
-            "avgFracPerimeter (fusiform)");
+    ObjectData fusiformObject = new ObjectData(1.0, 0.004, 0.5, 1.0, 0.05, 1.0, 503, 23, 0.02, "avgFracPerimeter (fusiform)");
 
     // Parameters for the execution of active contours
     ObjectData currentParameters = roundObject;
@@ -138,31 +118,157 @@ public class MyPlugin<T extends RealType<T>> implements Command {
 
         SwingUtilities.invokeLater(this::initializeUI);
 
-        final Img<T> image = (Img<T>) currentData.getImgPlus();
+        image = (Img<T>) currentData.getImgPlus();
 
     }
 
-    private void getROIs() {
-        RoiManager rm = RoiManager.getInstance();
-        rm.setVisible(true);
+    public void callToIDL() {
+        System.out.println("Entered Java script");
+
+        String idl_executable = "C:/Program Files/ITT/IDL71/bin/bin.x86_64/idl.exe";
+        String idl_vm = "C:/Program Files/ITT/IDL71/bin/bin.x86_64/idlrt.exe";
+        String idl_script = "C:/Users/gonza/Desktop/activecontours.sav";
+
         try {
+            ProcessBuilder processBuilder = new ProcessBuilder(idl_vm, "-vm=" + idl_script);
+            Process process = processBuilder.start();
+            System.out.println("Trying to execute the script.");
+
+            // Read the output from the process if needed
+            /*
+            InputStream inputStream = process.getInputStream();
+            BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+            String line;
+            while ((line = reader.readLine()) != null) {
+                System.out.println(line);
+            }
+            */
+
+            int exitCode = process.waitFor();
+
+            if (exitCode == 0) {
+                System.out.println("IDL script executed successfully.");
+            } else {
+                System.out.println("Error executing IDL script. Exit code: " + exitCode);
+            }
+
+        } catch (IOException | InterruptedException e) {
+            System.out.println("Error executing IDL script: " + e);
+        }
+    }
+
+    public void newfile(String filename) {
+        try {
+            FileWriter writer = new FileWriter(filename);
+            writer.write("");
+            writer.close();
+        } catch (IOException e) {
+            System.out.println("An error occurred.");
+            e.printStackTrace();
+        }
+    }
+    public void writeToFile(String filename, String text) {
+        try {
+            FileWriter writer = new FileWriter(filename, true);
+            writer.write(text);
+            writer.write(System.lineSeparator());
+            writer.close();
+        } catch (IOException e) {
+            System.out.println("An error occurred.");
+            e.printStackTrace();
+        }
+    }
+
+    public String convertArrayListToString(ArrayList<Double> list) {
+        StringBuilder sb = new StringBuilder();
+        for (Double d : list) {
+            sb.append(d).append(" ");
+        }
+
+        sb.deleteCharAt(sb.length() - 1);
+
+        return sb.toString();
+    }
+
+    private void getROIs() {
+        try {
+            RoiManager rm = RoiManager.getInstance();
+            rm.setVisible(true);
+            newfile(idlRoisTemporalFilename);
             Roi[] rois = rm.getRoisAsArray();
+            writeToFile(idlRoisTemporalFilename, String.valueOf(rois.length));
+            ArrayList<Double> roisSize = new ArrayList<>();
+            for (Roi roi : rois) {
+                int j = 0;
+                for (Point ignored : roi) {
+                    j++;
+                }
+                roisSize.add((double) j);
+            }
+            writeToFile(idlRoisTemporalFilename, convertArrayListToString(roisSize));
             int i = 0;
             for (Roi roi : rois) {
                 log.info("Roi " + i + ": ");
                 log.info("\tname: " + roi.getName());
                 log.info("\tPoints: ");
                 int j = 0;
+                ArrayList<Double> xCoords = new ArrayList<>();
+                ArrayList<Double> yCoords = new ArrayList<>();
                 for (Point p : roi) {
                     log.info("\t\tPoint " + j + ": " + p.toString());
+                    xCoords.add(p.getX());
+                    yCoords.add(p.getY());
                     j++;
                 }
+                writeToFile(idlRoisTemporalFilename, convertArrayListToString(xCoords));
+                writeToFile(idlRoisTemporalFilename, convertArrayListToString(yCoords));
                 i++;
             }
+            noROIs = false;
         } catch (NullPointerException exception) {
+            noROIs = true;
             JOptionPane.showMessageDialog(frame, "There are no ROIs in the Roi Manager.\nThis plug-in requires at least one.", "ROI Error", JOptionPane.ERROR_MESSAGE);
-        } finally {
-            rm.setVisible(false);
+        }
+    }
+
+    private void setROIs() {
+        try (BufferedReader br = new BufferedReader(new FileReader(idlAdjustedRoisTemporalFilename))) {
+            String line;
+            RoiManager roiManager = RoiManager.getInstance();
+            if (roiManager == null) {
+                roiManager = new RoiManager();
+            }
+
+            roiManager.runCommand("reset");
+
+            ArrayList<String[]> xCoordinates = new ArrayList<>();
+            ArrayList<String[]> yCoordinates = new ArrayList<>();
+
+            while ((line = br.readLine()) != null) {
+                String[] x = line.split(" ");
+                xCoordinates.add(x);
+                if ((line = br.readLine()) != null) {
+                    String[] y = line.split(" ");
+                    yCoordinates.add(y);
+                } else {
+                    break;
+                }
+            }
+
+            for (int i = 0; i < xCoordinates.size(); i++){
+                float[] x = new float[xCoordinates.get(i).length];
+                float[] y = new float[yCoordinates.get(i).length];
+                for (int j = 0; j < xCoordinates.get(i).length; j++) {
+                    x[j] = Float.parseFloat(xCoordinates.get(i)[j]);
+                    y[j] = Float.parseFloat(yCoordinates.get(i)[j]);
+                }
+                roiManager.addRoi(new ij.gui.PolygonRoi(x, y, xCoordinates.get(i).length, Roi.POLYGON));
+            }
+
+            roiManager.runCommand("Show All");
+
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
@@ -313,8 +419,49 @@ public class MyPlugin<T extends RealType<T>> implements Command {
         bottomButton.setPreferredSize(new Dimension(700, 40));
         bottomButton.setMargin(new Insets(10, 50, 10, 50)); // Adjust the margins as needed
         bottomButton.addActionListener(e -> {
+            bottomButton.setEnabled(false);
             log.info(currentParameters.toString());
+            newfile(idlParametersTemporalFilename);
+            writeToFile(idlParametersTemporalFilename, currentParameters.getParameter("alpha").toString());
+            writeToFile(idlParametersTemporalFilename, currentParameters.getParameter("beta").toString());
+            writeToFile(idlParametersTemporalFilename, currentParameters.getParameter("gamma").toString());
+            writeToFile(idlParametersTemporalFilename, currentParameters.getParameter("kappa").toString());
+            writeToFile(idlParametersTemporalFilename, currentParameters.getParameter("mu").toString());
+            writeToFile(idlParametersTemporalFilename, currentParameters.getParameter("iterations").toString());
+            writeToFile(idlParametersTemporalFilename, currentParameters.getParameter("iterationsVF").toString());
+
+            newfile(idlImageTemporalFilename);
+
+            int width = (int) image.dimension(0);
+            int height = (int) image.dimension(1);
+
+            writeToFile(idlImageTemporalFilename, String.valueOf(width));
+            writeToFile(idlImageTemporalFilename, String.valueOf(height));
+
+            for (int y = 0; y < height; y++) {
+                ArrayList<Double> row = new ArrayList<>();
+                for (int x = 0; x < width; x++) {
+                    RandomAccess<? extends RealType<?>> randomAccess = image.randomAccess();
+                    randomAccess.setPosition(x, 0);
+                    randomAccess.setPosition(y, 1);
+                    double value = randomAccess.get().getRealDouble();
+                    row.add(value);
+                }
+                writeToFile(idlImageTemporalFilename, convertArrayListToString(row));
+            }
+
             getROIs();
+
+            if (noROIs){
+                bottomButton.setEnabled(true);
+                // halt execution
+            }
+
+            callToIDL();
+
+            setROIs();
+
+            bottomButton.setEnabled(true);
         });
         bottomPanel.add(bottomButton, BorderLayout.CENTER);
 
