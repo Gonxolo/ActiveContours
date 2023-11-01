@@ -12,10 +12,10 @@
     </parent>
 
     <groupId>org.example</groupId>
-    <artifactId>MyPlugin</artifactId>
+    <artifactId>ActiveContours</artifactId>
     <version>0.1.0-SNAPSHOT</version>
 
-    <name>MyPlugin</name>
+    <name>ActiveContours</name>
     <description>Basic plugin to test Fiji's plugin development</description>
     <url>https://scian.cl/scientific-image-analysis/</url>
     <inceptionYear>2023</inceptionYear>
@@ -55,15 +55,15 @@
     </mailingLists>
 
     <scm>
-        <connection>scm:git:https://github.com/Gonxolo/MyPlugin</connection>
-        <developerConnection>scm:git:git@github.com:Gonxolo/MyPlugin</developerConnection>
+        <connection>scm:git:https://github.com/Gonxolo/ActiveContours</connection>
+        <developerConnection>scm:git:git@github.com:Gonxolo/ActiveContours</developerConnection>
         <tag>HEAD</tag>
-        <url>https://github.com/Gonxolo/MyPlugin</url>
+        <url>https://github.com/Gonxolo/ActiveContours</url>
     </scm>
 
     <issueManagement>
         <system>GitHub Issues</system>
-        <url>https://github.com/Gonxolo/MyPlugin/issues</url>
+        <url>https://github.com/Gonxolo/ActiveContours/issues</url>
     </issueManagement>
 
     <ciManagement>
@@ -75,7 +75,7 @@
         <maven.compiler.target>18</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <package-name>org.example.plugins</package-name>
-        <main-class>org.example.plugins.MyPlugin</main-class>
+        <main-class>org.example.plugins.ActiveContours</main-class>
         <license.licenseName>cc0</license.licenseName>
         <license.copyrightOwners>SCIAN-Lab</license.copyrightOwners>
     </properties>

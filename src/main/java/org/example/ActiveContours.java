@@ -29,8 +29,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 
-@Plugin(type = Command.class, menuPath = "Plugins>Segmentation>MyPlugin")
-public class MyPlugin<T extends RealType<T>> implements Command {
+@Plugin(type = Command.class, menuPath = "Plugins>Segmentation>Active Contours")
+public class ActiveContours<T extends RealType<T>> implements Command {
 
     @Parameter
     private Dataset currentData;
@@ -45,7 +45,7 @@ public class MyPlugin<T extends RealType<T>> implements Command {
 
     private boolean noROIs;
 
-    private final JFrame frame = new JFrame("MyPluginWindow");
+    private final JFrame frame = new JFrame("Active Contours");
 
     private final String[] convergenceChoices = {"avgFracPerimeter (round)", "avgFracPerimeter (square)", "avgFracPerimeter (star)", "avgFracPerimeter (fusiform)"};
 
@@ -298,26 +298,22 @@ public class MyPlugin<T extends RealType<T>> implements Command {
         leftPanel.setPreferredSize(new Dimension(300, 500));
         leftPanel.setBorder(BorderFactory.createTitledBorder("Object Shape"));
 
-        ImageIcon roundObjectIcon = new ImageIcon(getClass().getResource("/letter_a.png"));
-        JButton roundObjectButton = new JButton(roundObjectIcon);
+        ShapeButton roundObjectButton = new ShapeButton("/letter_a.png");
         roundObjectButton.setToolTipText("This is the tooltip for the Round Object button, this will display some useful info about this button.");
         JLabel roundObjectButtonLabel = new JLabel("Round Shape");
         roundObjectButton.setActionCommand("roundObjectSelected");
 
-        ImageIcon squareObjectIcon = new ImageIcon(getClass().getResource("/letter_b.png"));
-        JButton squareObjectButton = new JButton(squareObjectIcon);
+        ShapeButton squareObjectButton = new ShapeButton("/letter_b.png");
         squareObjectButton.setToolTipText("This is the tooltip for the Square Object button, this will display some useful info about this button.");
         JLabel squareObjectButtonLabel = new JLabel("Square Shape");
         squareObjectButton.setActionCommand("squareObjectSelected");
 
-        ImageIcon starObjectIcon = new ImageIcon(getClass().getResource("/letter_a.png"));
-        JButton starObjectButton = new JButton(starObjectIcon);
+        ShapeButton starObjectButton = new ShapeButton("/letter_a.png");
         starObjectButton.setToolTipText("This is the tooltip for the Star Object button, this will display some useful info about this button.");
         JLabel starObjectButtonLabel = new JLabel("Star Shape");
         starObjectButton.setActionCommand("starObjectSelected");
 
-        ImageIcon fusiformObjectIcon = new ImageIcon(getClass().getResource("/letter_b.png"));
-        JButton fusiformObjectButton = new JButton(fusiformObjectIcon);
+        ShapeButton fusiformObjectButton = new ShapeButton("/letter_b.png");
         fusiformObjectButton.setToolTipText("This is the tooltip for the Fusiform Object button, this will display some useful info about this button.");
         JLabel fusiformObjectButtonLabel = new JLabel("Fusiform Shape");
         fusiformObjectButton.setActionCommand("fusiformObjectSelected");
