@@ -15,6 +15,7 @@ import org.scijava.plugin.Plugin;
 import org.scijava.ui.UIService;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.ActionListener;
 import java.awt.event.FocusAdapter;
@@ -28,9 +29,17 @@ import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.example.CamelCaseConverter.toCapitalized;
+
 
 @Plugin(type = Command.class, menuPath = "Plugins>Segmentation>Active Contours")
 public class ActiveContours<T extends RealType<T>> implements Command {
+
+    // DEBUG MODES
+    // 1 = ERRORS
+    // 2 = WARNINGS
+    // 3 = INFO
+    private final int DEBUG = 0;
 
     @Parameter
     private Dataset currentData;
@@ -43,17 +52,19 @@ public class ActiveContours<T extends RealType<T>> implements Command {
     @Parameter
     private LogService log;
 
-    private boolean noROIs;
-
     private final JFrame frame = new JFrame("Active Contours");
 
-    private final String[] convergenceChoices = {"avgFracPerimeter (round)", "avgFracPerimeter (square)", "avgFracPerimeter (star)", "avgFracPerimeter (fusiform)"};
+    private final String[] convergenceChoices = {"avgFracPerimeter"};
 
     String idlParametersTemporalFilename = "C:/Users/gonza/Desktop/idl_params.dat";
     String idlRoisTemporalFilename = "C:/Users/gonza/Desktop/idl_rois.dat";
     String idlImageTemporalFilename = "C:/Users/gonza/Desktop/idl_tmp_img.dat";
     String idlAdjustedRoisTemporalFilename = "C:/Users/gonza/Desktop/idl_adjusted_rois.dat";
 
+//    String idlParametersTemporalFilename = "C:/Users/Gonzalo/Desktop/tmp/idl_params.dat";
+//    String idlRoisTemporalFilename = "C:/Users/Gonzalo/Desktop/tmp/idl_rois.dat";
+//    String idlImageTemporalFilename = "C:/Users/Gonzalo/Desktop/tmp/idl_tmp_img.dat";
+//    String idlAdjustedRoisTemporalFilename = "C:/Users/Gonzalo/Desktop/tmp/idl_adjusted_rois.dat";
 
     static class ObjectData {
         private final Map<String, Object> parameters;
@@ -102,13 +113,13 @@ public class ActiveContours<T extends RealType<T>> implements Command {
 
     }
 
-    ObjectData roundObject = new ObjectData(1.0, 0.001, 0.5, 1.0, 0.05, 1.0, 500, 20, 0.02, "avgFracPerimeter (round)");
+    ObjectData roundObject = new ObjectData(0.5, 0.7, 0.6, 0.8, 0.5, 1.0, 100, 20, 0.02, "avgFracPerimeter");
 
-    ObjectData squareObject = new ObjectData(1.0, 0.002, 0.5, 1.0, 0.05, 1.0, 501, 21, 0.02, "avgFracPerimeter (square)");
+    ObjectData squareObject = new ObjectData(0.5, 0.6, 0.5, 0.7, 0.5, 1.0, 100, 20, 0.02, "avgFracPerimeter");
 
-    ObjectData starObject = new ObjectData(1.0, 0.003, 0.5, 1.0, 0.05, 1.0, 502, 22, 0.02, "avgFracPerimeter (star)");
+    ObjectData starObject = new ObjectData(0.6, 1.0, 0.5, 2.5, 2.5, 1.0, 350, 20, 0.02, "avgFracPerimeter");
 
-    ObjectData fusiformObject = new ObjectData(1.0, 0.004, 0.5, 1.0, 0.05, 1.0, 503, 23, 0.02, "avgFracPerimeter (fusiform)");
+    ObjectData fusiformObject = new ObjectData(0.5, 0.6, 0.5, 0.7, 0.5, 1.0, 100, 20, 0.02, "avgFracPerimeter");
 
     // Parameters for the execution of active contours
     ObjectData currentParameters = roundObject;
@@ -128,21 +139,12 @@ public class ActiveContours<T extends RealType<T>> implements Command {
         String idl_executable = "C:/Program Files/ITT/IDL71/bin/bin.x86_64/idl.exe";
         String idl_vm = "C:/Program Files/ITT/IDL71/bin/bin.x86_64/idlrt.exe";
         String idl_script = "C:/Users/gonza/Desktop/activecontours.sav";
+        // String idl_script = "C:/Users/Gonzalo/Desktop/activecontours.sav";
 
         try {
             ProcessBuilder processBuilder = new ProcessBuilder(idl_vm, "-vm=" + idl_script);
             Process process = processBuilder.start();
             System.out.println("Trying to execute the script.");
-
-            // Read the output from the process if needed
-            /*
-            InputStream inputStream = process.getInputStream();
-            BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
-            String line;
-            while ((line = reader.readLine()) != null) {
-                System.out.println(line);
-            }
-            */
 
             int exitCode = process.waitFor();
 
@@ -180,14 +182,18 @@ public class ActiveContours<T extends RealType<T>> implements Command {
     }
 
     public String convertArrayListToString(ArrayList<Double> list) {
-        StringBuilder sb = new StringBuilder();
-        for (Double d : list) {
-            sb.append(d).append(" ");
+        try {
+            StringBuilder sb = new StringBuilder();
+            for (Double d : list) {
+                sb.append(d).append(" ");
+            }
+
+            sb.deleteCharAt(sb.length() - 1);
+
+            return sb.toString();
+        } catch (StringIndexOutOfBoundsException e) {
+            return "";
         }
-
-        sb.deleteCharAt(sb.length() - 1);
-
-        return sb.toString();
     }
 
     private void getROIs() {
@@ -208,14 +214,16 @@ public class ActiveContours<T extends RealType<T>> implements Command {
             writeToFile(idlRoisTemporalFilename, convertArrayListToString(roisSize));
             int i = 0;
             for (Roi roi : rois) {
-                log.info("Roi " + i + ": ");
-                log.info("\tname: " + roi.getName());
-                log.info("\tPoints: ");
+                if (DEBUG >= 3) {
+                    log.info("Roi " + i + ": ");
+                    log.info("\tname: " + roi.getName());
+                    log.info("\tPoints: ");
+                }
                 int j = 0;
                 ArrayList<Double> xCoords = new ArrayList<>();
                 ArrayList<Double> yCoords = new ArrayList<>();
                 for (Point p : roi) {
-                    log.info("\t\tPoint " + j + ": " + p.toString());
+                    if (DEBUG >= 3) log.info("\t\tPoint " + j + ": " + p.toString());
                     xCoords.add(p.getX());
                     yCoords.add(p.getY());
                     j++;
@@ -224,9 +232,7 @@ public class ActiveContours<T extends RealType<T>> implements Command {
                 writeToFile(idlRoisTemporalFilename, convertArrayListToString(yCoords));
                 i++;
             }
-            noROIs = false;
         } catch (NullPointerException exception) {
-            noROIs = true;
             JOptionPane.showMessageDialog(frame, "There are no ROIs in the Roi Manager.\nThis plug-in requires at least one.", "ROI Error", JOptionPane.ERROR_MESSAGE);
         }
     }
@@ -287,39 +293,63 @@ public class ActiveContours<T extends RealType<T>> implements Command {
     }
 
     private void initializeUI() {
+
+        int PANEL_MARGIN = 8;
+
+        int LEFT_PANEL_WIDTH = 300;
+        int LEFT_PANEL_HEIGHT = 550;
+
+        int RIGHT_PANEL_WIDTH = 400;
+        int RIGHT_PANEL_HEIGHT = LEFT_PANEL_HEIGHT;
+
+        int BASE_BOTTOM_PANEL_WIDTH = LEFT_PANEL_WIDTH;
+        int BASE_BOTTOM_PANEL_HEIGHT = 30;
+        int EXTENDED_BOTTOM_PANEL_WIDTH = LEFT_PANEL_WIDTH + RIGHT_PANEL_WIDTH;
+        int EXTENDED_BOTTOM_PANEL_HEIGHT = BASE_BOTTOM_PANEL_HEIGHT;
+
+        int BASE_FRAME_WIDTH = LEFT_PANEL_WIDTH;
+        int BASE_FRAME_HEIGHT = LEFT_PANEL_HEIGHT + BASE_BOTTOM_PANEL_HEIGHT;
+        int EXTENDED_FRAME_WIDTH = LEFT_PANEL_WIDTH + RIGHT_PANEL_WIDTH;
+        int EXTENDED_FRAME_HEIGHT = BASE_FRAME_HEIGHT;
+
+
+        MenuBar menuBar = new MenuBar();
+        frame.setJMenuBar(menuBar);
         // This is the whole plugin window
-        frame.setSize(300, 600);
+        frame.setSize(BASE_FRAME_WIDTH, BASE_FRAME_HEIGHT);
         frame.setResizable(false);
         frame.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
         frame.setVisible(true);
 
         // This is the panel that contains the buttons with the object shapes
-        JPanel leftPanel = new JPanel(new GridBagLayout());
-        leftPanel.setPreferredSize(new Dimension(300, 500));
-        leftPanel.setBorder(BorderFactory.createTitledBorder("Object Shape"));
+        JPanel outerLeftPanel = new JPanel(new BorderLayout());
+        outerLeftPanel.setBorder(new EmptyBorder(PANEL_MARGIN, PANEL_MARGIN, PANEL_MARGIN/2, PANEL_MARGIN));
+        outerLeftPanel.setPreferredSize(new Dimension(LEFT_PANEL_WIDTH, LEFT_PANEL_HEIGHT));
+        JPanel innerLeftPanel = new JPanel(new GridBagLayout());
+        outerLeftPanel.setPreferredSize(new Dimension(LEFT_PANEL_WIDTH - 2*PANEL_MARGIN, LEFT_PANEL_HEIGHT - 2*PANEL_MARGIN));
+        innerLeftPanel.setBorder(BorderFactory.createTitledBorder("Object Shape"));
 
-        ShapeButton roundObjectButton = new ShapeButton("/letter_a.png");
+        ShapeButton roundObjectButton = new ShapeButton("/round.png");
         roundObjectButton.setToolTipText("This is the tooltip for the Round Object button, this will display some useful info about this button.");
         JLabel roundObjectButtonLabel = new JLabel("Round Shape");
         roundObjectButton.setActionCommand("roundObjectSelected");
 
-        ShapeButton squareObjectButton = new ShapeButton("/letter_b.png");
+        ShapeButton squareObjectButton = new ShapeButton("/square.png");
         squareObjectButton.setToolTipText("This is the tooltip for the Square Object button, this will display some useful info about this button.");
         JLabel squareObjectButtonLabel = new JLabel("Square Shape");
         squareObjectButton.setActionCommand("squareObjectSelected");
 
-        ShapeButton starObjectButton = new ShapeButton("/letter_a.png");
+        ShapeButton starObjectButton = new ShapeButton("/star.png");
         starObjectButton.setToolTipText("This is the tooltip for the Star Object button, this will display some useful info about this button.");
         JLabel starObjectButtonLabel = new JLabel("Star Shape");
         starObjectButton.setActionCommand("starObjectSelected");
 
-        ShapeButton fusiformObjectButton = new ShapeButton("/letter_b.png");
+        ShapeButton fusiformObjectButton = new ShapeButton("/fusiform.png");
         fusiformObjectButton.setToolTipText("This is the tooltip for the Fusiform Object button, this will display some useful info about this button.");
         JLabel fusiformObjectButtonLabel = new JLabel("Fusiform Shape");
         fusiformObjectButton.setActionCommand("fusiformObjectSelected");
 
         // Add components to the panel
-        //leftPanel.add(Box.createVerticalGlue());
         JButton[] shapeButtons = {roundObjectButton, squareObjectButton, starObjectButton, fusiformObjectButton};
         JLabel[] shapeLabels = {roundObjectButtonLabel, squareObjectButtonLabel, starObjectButtonLabel, fusiformObjectButtonLabel};
 
@@ -327,27 +357,30 @@ public class ActiveContours<T extends RealType<T>> implements Command {
         for (JButton btn : shapeButtons) {
             shapesButtonGroup.add(btn);
         }
+        roundObjectButton.setSelected(true);
+        roundObjectButton.setBackground(Color.YELLOW);
 
         for (int i = 0; i < shapeButtons.length; i++) {
-            addComponent(leftPanel, shapeButtons[i], 0, i, 1, 1, GridBagConstraints.CENTER, GridBagConstraints.BOTH, 10, 10);
-            addComponent(leftPanel, shapeLabels[i], 1, i, 1, 1, GridBagConstraints.CENTER, GridBagConstraints.BOTH, 10, 10);
+            addComponent(innerLeftPanel, shapeButtons[i], 0, i, 1, 1, GridBagConstraints.CENTER, GridBagConstraints.BOTH, 10, 10);
+            addComponent(innerLeftPanel, shapeLabels[i], 1, i, 1, 1, GridBagConstraints.CENTER, GridBagConstraints.BOTH, 10, 10);
         }
 
-        ImageIcon advancedOptionsIcon = new ImageIcon(getClass().getResource("/letter_a.png"));
-        JButton advancedOptionsButton = new JButton(advancedOptionsIcon);
+        ShapeButton advancedOptionsButton = new ShapeButton("/blank.png");
         advancedOptionsButton.setToolTipText("This is the tooltip for the Advanced Options button, this will display some useful info about this button.");
         JLabel advancedOptionsButtonLabel = new JLabel("Advanced Options");
         advancedOptionsButton.setActionCommand("advancedOptionsSelected");
 
-        addComponent(leftPanel, advancedOptionsButton, 0, shapeButtons.length, 1, 1, GridBagConstraints.CENTER, GridBagConstraints.BOTH, 10, 10);
-        addComponent(leftPanel, advancedOptionsButtonLabel, 1, shapeButtons.length, 1, 1, GridBagConstraints.CENTER, GridBagConstraints.BOTH, 10, 10);
+        addComponent(innerLeftPanel, advancedOptionsButton, 0, shapeButtons.length, 1, 1, GridBagConstraints.CENTER, GridBagConstraints.BOTH, 10, 10);
+        addComponent(innerLeftPanel, advancedOptionsButtonLabel, 1, shapeButtons.length, 1, 1, GridBagConstraints.CENTER, GridBagConstraints.BOTH, 10, 10);
 
 
-        // Create a panel with number inputs
-        JPanel rightPanel = new JPanel();
-        rightPanel.setPreferredSize(new Dimension(400, 500));
-        rightPanel.setLayout(new GridBagLayout());
-        rightPanel.setBorder(BorderFactory.createTitledBorder("Advanced Parameter Configuration"));
+        // This is the panel that contains the number inputs
+        JPanel outerRightPanel = new JPanel(new BorderLayout());
+        outerRightPanel.setBorder(new EmptyBorder(PANEL_MARGIN, PANEL_MARGIN/2, PANEL_MARGIN/2, PANEL_MARGIN));
+        outerRightPanel.setPreferredSize(new Dimension(RIGHT_PANEL_WIDTH, RIGHT_PANEL_HEIGHT));
+        JPanel innerRightPanel = new JPanel(new GridBagLayout());
+        innerRightPanel.setPreferredSize(new Dimension(RIGHT_PANEL_WIDTH - 2*PANEL_MARGIN, RIGHT_PANEL_WIDTH - 2*PANEL_MARGIN));
+        innerRightPanel.setBorder(BorderFactory.createTitledBorder("Advanced Parameter Configuration"));
 
         String[] parameterNames = {"alpha", "beta", "gamma", "kappa", "mu", "perimeterFactor", "convergenceLimit"};
         String[] iterationsNames = {"iterations", "iterationsVF"};
@@ -357,7 +390,7 @@ public class ActiveContours<T extends RealType<T>> implements Command {
 
         for (int i = 0; i < parameterNames.length; i++) {
             String parameterName = parameterNames[i];
-            inputLabels[i] = new JLabel(parameterName);
+            inputLabels[i] = new JLabel(toCapitalized(parameterName));
             String parameterValue = String.valueOf(currentParameters.getParameter(parameterNames[i]));
             inputFields[i] = new JTextField(parameterValue);
             int inputLabelsIndex = i;
@@ -378,7 +411,7 @@ public class ActiveContours<T extends RealType<T>> implements Command {
 
         for (int i = 0; i < iterationsNames.length; i++) {
             String parameterName = iterationsNames[i];
-            inputLabels[i + parameterNames.length] = new JLabel(parameterName);
+            inputLabels[i + parameterNames.length] = new JLabel(toCapitalized(parameterName));
             String parameterValue = String.valueOf(currentParameters.getParameter(iterationsNames[i]));
             inputFields[i + parameterNames.length] = new JTextField(parameterValue);
             int inputLabelsIndex = i + parameterNames.length;
@@ -397,26 +430,48 @@ public class ActiveContours<T extends RealType<T>> implements Command {
             });
         }
 
-        JLabel convergenceSelectorLabel = new JLabel("convergenceMetric");
+        JLabel convergenceSelectorLabel = new JLabel("Convergence Metric");
         JComboBox<String> convergenceSelector = new JComboBox<>(convergenceChoices);
         convergenceSelector.setSelectedItem(String.valueOf(currentParameters.getParameter("convergenceMetric")));
 
         for (int i = 0; i < inputFields.length; i++) {
-            addComponent(rightPanel, inputLabels[i], 0, i, 1, 1, GridBagConstraints.CENTER, GridBagConstraints.BOTH, 10, 10);
-            addComponent(rightPanel, inputFields[i], 1, i, 1, 1, GridBagConstraints.CENTER, GridBagConstraints.BOTH, 10, 10);
+            addComponent(innerRightPanel, inputLabels[i], 0, i, 1, 1, GridBagConstraints.CENTER, GridBagConstraints.BOTH, 10, 10);
+            addComponent(innerRightPanel, inputFields[i], 1, i, 1, 1, GridBagConstraints.CENTER, GridBagConstraints.BOTH, 10, 10);
         }
 
-        addComponent(rightPanel, convergenceSelectorLabel, 0, inputFields.length, 1, 1, GridBagConstraints.CENTER, GridBagConstraints.BOTH, 10, 10);
-        addComponent(rightPanel, convergenceSelector, 1, inputFields.length, 1, 1, GridBagConstraints.CENTER, GridBagConstraints.BOTH, 10, 10);
+        addComponent(innerRightPanel, convergenceSelectorLabel, 0, inputFields.length, 1, 1, GridBagConstraints.CENTER, GridBagConstraints.BOTH, 10, 10);
+        addComponent(innerRightPanel, convergenceSelector, 1, inputFields.length, 1, 1, GridBagConstraints.CENTER, GridBagConstraints.BOTH, 10, 10);
 
         JPanel bottomPanel = new JPanel();
         bottomPanel.setLayout(new BorderLayout());
+        bottomPanel.setBorder(new EmptyBorder(PANEL_MARGIN/2, PANEL_MARGIN, PANEL_MARGIN, PANEL_MARGIN));
         JButton bottomButton = new JButton("Run Algorithm");
-        bottomButton.setPreferredSize(new Dimension(700, 40));
-        bottomButton.setMargin(new Insets(10, 50, 10, 50)); // Adjust the margins as needed
+        bottomButton.setPreferredSize(new Dimension(BASE_BOTTOM_PANEL_WIDTH, BASE_BOTTOM_PANEL_HEIGHT));
         bottomButton.addActionListener(e -> {
-            bottomButton.setEnabled(false);
-            log.info(currentParameters.toString());
+
+            if (DEBUG >= 3) log.info(currentParameters.toString());
+
+            // Create a non-modal dialog
+            JDialog loadingDialog = new JDialog(frame, "Loading...", false);
+            loadingDialog.setModalityType(Dialog.ModalityType.MODELESS);
+            loadingDialog.setSize(200, 100);
+
+            // Create a label with the loading message
+            JLabel loadingLabel = new JLabel("Loading results...");
+            loadingLabel.setHorizontalAlignment(JLabel.CENTER);
+            loadingLabel.setVerticalAlignment(JLabel.CENTER);
+            loadingDialog.add(loadingLabel, BorderLayout.CENTER);
+
+            JPanel loadingPanel = new JPanel();
+            loadingPanel.add(loadingLabel);
+            loadingDialog.getContentPane().add(loadingPanel);
+
+            // Set the location of the dialog relative to the frame
+            loadingDialog.setLocationRelativeTo(frame);
+
+            // Show the dialog
+            loadingDialog.setVisible(true);
+
             newfile(idlParametersTemporalFilename);
             writeToFile(idlParametersTemporalFilename, currentParameters.getParameter("alpha").toString());
             writeToFile(idlParametersTemporalFilename, currentParameters.getParameter("beta").toString());
@@ -448,24 +503,22 @@ public class ActiveContours<T extends RealType<T>> implements Command {
 
             getROIs();
 
-            if (noROIs){
-                bottomButton.setEnabled(true);
-                // halt execution
-            }
-
             callToIDL();
 
             setROIs();
 
-            bottomButton.setEnabled(true);
+            loadingDialog.dispose();
+
         });
         bottomPanel.add(bottomButton, BorderLayout.CENTER);
 
-        frame.add(leftPanel, BorderLayout.WEST);
-        frame.add(rightPanel, BorderLayout.CENTER);
+        outerLeftPanel.add(innerLeftPanel, BorderLayout.CENTER);
+        frame.add(outerLeftPanel, BorderLayout.WEST);
+        outerRightPanel.add(innerRightPanel, BorderLayout.CENTER);
+        frame.add(outerRightPanel, BorderLayout.CENTER);
         frame.add(bottomPanel, BorderLayout.SOUTH);
         // Hide the number panel initially
-        rightPanel.setVisible(false);
+        outerRightPanel.setVisible(false);
 
 
         // Button action listener
@@ -475,32 +528,33 @@ public class ActiveContours<T extends RealType<T>> implements Command {
               Enumeration<AbstractButton> objectButtons = shapesButtonGroup.getElements();
               while (objectButtons.hasMoreElements()) {
                   AbstractButton objectButton = objectButtons.nextElement();
-                  objectButton.setBackground(UIManager.getColor("Button.background"));
+                  objectButton.setSelected(false);
+                  objectButton.setBackground(Color.WHITE);
               }
               switch (command) {
                   case "roundObjectSelected":
                       roundObjectButton.setSelected(true);
                       roundObjectButton.setBackground(Color.YELLOW);
                       currentParameters = roundObject;
-                      log.info("Round Object Selected");
+                      if (DEBUG >= 3) log.info("Round Object Selected");
                       break;
                   case "squareObjectSelected":
                       squareObjectButton.setSelected(true);
                       squareObjectButton.setBackground(Color.YELLOW);
                       currentParameters = squareObject;
-                      log.info("Square Object Selected");
+                      if (DEBUG >= 3) log.info("Square Object Selected");
                       break;
                   case "starObjectSelected":
                       starObjectButton.setSelected(true);
                       starObjectButton.setBackground(Color.YELLOW);
                       currentParameters = starObject;
-                      log.info("Star Object Selected");
+                      if (DEBUG >= 3) log.info("Star Object Selected");
                       break;
                   case "fusiformObjectSelected":
                       fusiformObjectButton.setSelected(true);
                       fusiformObjectButton.setBackground(Color.YELLOW);
                       currentParameters = fusiformObject;
-                      log.info("Fusiform Object Selected");
+                      if (DEBUG >= 3) log.info("Fusiform Object Selected");
                       break;
               }
 //              String[] parameterNames = {"alpha", "beta", "gamma", "kappa", "mu", "perimeterFactor", "convergenceLimit"};
@@ -520,14 +574,18 @@ public class ActiveContours<T extends RealType<T>> implements Command {
         starObjectButton.addActionListener(actionListener);
         fusiformObjectButton.addActionListener(actionListener);
         advancedOptionsButton.addActionListener(e -> {
-            log.info("Advanced Options Selected");
-            log.info("Panel previous state: " + rightPanel.isVisible());
-            rightPanel.setVisible(!rightPanel.isVisible());
-            log.info("Panel current state: " + rightPanel.isVisible());
-            if (rightPanel.isVisible()) {
-                frame.setSize(700, 600);
+            if (DEBUG >= 3) {
+                log.info("Advanced Options Selected");
+                log.info("Panel previous state: " + outerRightPanel.isVisible());
+            }
+            outerRightPanel.setVisible(!outerRightPanel.isVisible());
+            if (DEBUG >= 3) log.info("Panel current state: " + outerRightPanel.isVisible());
+            if (outerRightPanel.isVisible()) {
+                outerLeftPanel.setBorder(new EmptyBorder(PANEL_MARGIN, PANEL_MARGIN, PANEL_MARGIN/2, PANEL_MARGIN/2));
+                frame.setSize(EXTENDED_FRAME_WIDTH, EXTENDED_FRAME_HEIGHT);
             } else {
-                frame.setSize(300, 600);
+                outerLeftPanel.setBorder(new EmptyBorder(PANEL_MARGIN, PANEL_MARGIN, PANEL_MARGIN/2, PANEL_MARGIN));
+                frame.setSize(BASE_FRAME_WIDTH, BASE_FRAME_HEIGHT);
             }
             frame.revalidate();
             frame.repaint();
