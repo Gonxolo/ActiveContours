@@ -20,14 +20,8 @@ import java.awt.*;
 import java.awt.event.ActionListener;
 import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.Map;
+import java.io.*;
+import java.util.*;
 
 import static org.example.CamelCaseConverter.toCapitalized;
 
@@ -56,15 +50,12 @@ public class ActiveContours<T extends RealType<T>> implements Command {
 
     private final String[] convergenceChoices = {"avgFracPerimeter"};
 
-    String idlParametersTemporalFilename = "C:/Users/gonza/Desktop/idl_params.dat";
-    String idlRoisTemporalFilename = "C:/Users/gonza/Desktop/idl_rois.dat";
-    String idlImageTemporalFilename = "C:/Users/gonza/Desktop/idl_tmp_img.dat";
-    String idlAdjustedRoisTemporalFilename = "C:/Users/gonza/Desktop/idl_adjusted_rois.dat";
+    String tmpDir = System.getProperty("java.io.tmpdir");
 
-//    String idlParametersTemporalFilename = "C:/Users/Gonzalo/Desktop/tmp/idl_params.dat";
-//    String idlRoisTemporalFilename = "C:/Users/Gonzalo/Desktop/tmp/idl_rois.dat";
-//    String idlImageTemporalFilename = "C:/Users/Gonzalo/Desktop/tmp/idl_tmp_img.dat";
-//    String idlAdjustedRoisTemporalFilename = "C:/Users/Gonzalo/Desktop/tmp/idl_adjusted_rois.dat";
+    String idlParametersTmpFile = "idl_params.dat";
+    String idlRoisTmpFile = "idl_rois.dat";
+    String idlImageTmpFile = "idl_tmp_img.dat";
+    String idlAdjustedRoisTmpFile = "idl_adjusted_rois.dat";
 
     static class ObjectData {
         private final Map<String, Object> parameters;
@@ -131,18 +122,38 @@ public class ActiveContours<T extends RealType<T>> implements Command {
 
         image = (Img<T>) currentData.getImgPlus();
 
+        System.out.println(tmpDir);
+
     }
 
     public void callToIDL() {
         System.out.println("Entered Java script");
 
-        String idl_executable = "C:/Program Files/ITT/IDL71/bin/bin.x86_64/idl.exe";
+        // String idl_executable = "C:/Program Files/ITT/IDL71/bin/bin.x86_64/idl.exe";
         String idl_vm = "C:/Program Files/ITT/IDL71/bin/bin.x86_64/idlrt.exe";
-        String idl_script = "C:/Users/gonza/Desktop/activecontours.sav";
-        // String idl_script = "C:/Users/Gonzalo/Desktop/activecontours.sav";
+        // String idl_script = "C:/Users/gonza/Desktop/activecontours.sav";
+        InputStream savFileStream = getClass().getResourceAsStream("/activecontours.sav");
+        File tmpSavFile = newFile(tmpDir, "activecontours.sav");
+        BufferedReader br = new BufferedReader(new InputStreamReader(savFileStream));
+        try {
+            FileOutputStream fos = new FileOutputStream(tmpSavFile);
+            byte[] buffer = new byte[1024];
+            int bytesRead;
+
+            while ((bytesRead = savFileStream.read(buffer)) != -1) {
+                fos.write(buffer, 0, bytesRead);
+            }
+            fos.flush();
+            br.close();
+            savFileStream.close();
+        } catch (IOException ioException){
+            System.out.println("Error handling the .sav file");
+        }
+
+        String idl_script_path = tmpSavFile.getAbsolutePath();
 
         try {
-            ProcessBuilder processBuilder = new ProcessBuilder(idl_vm, "-vm=" + idl_script);
+            ProcessBuilder processBuilder = new ProcessBuilder(idl_vm, "-vm=" + idl_script_path);
             Process process = processBuilder.start();
             System.out.println("Trying to execute the script.");
 
@@ -156,22 +167,18 @@ public class ActiveContours<T extends RealType<T>> implements Command {
 
         } catch (IOException | InterruptedException e) {
             System.out.println("Error executing IDL script: " + e);
+        } finally {
+            tmpSavFile.delete();
         }
     }
 
-    public void newfile(String filename) {
-        try {
-            FileWriter writer = new FileWriter(filename);
-            writer.write("");
-            writer.close();
-        } catch (IOException e) {
-            System.out.println("An error occurred.");
-            e.printStackTrace();
-        }
+    public File newFile(String basedir, String filename) {
+        return new File(basedir, filename);
     }
-    public void writeToFile(String filename, String text) {
+
+    public void writeToFile(File file, String text) {
         try {
-            FileWriter writer = new FileWriter(filename, true);
+            FileWriter writer = new FileWriter(file, true);
             writer.write(text);
             writer.write(System.lineSeparator());
             writer.close();
@@ -200,9 +207,9 @@ public class ActiveContours<T extends RealType<T>> implements Command {
         try {
             RoiManager rm = RoiManager.getInstance();
             rm.setVisible(true);
-            newfile(idlRoisTemporalFilename);
+            File idlRois = newFile(tmpDir, idlRoisTmpFile);
             Roi[] rois = rm.getRoisAsArray();
-            writeToFile(idlRoisTemporalFilename, String.valueOf(rois.length));
+            writeToFile(idlRois, String.valueOf(rois.length));
             ArrayList<Double> roisSize = new ArrayList<>();
             for (Roi roi : rois) {
                 int j = 0;
@@ -211,7 +218,7 @@ public class ActiveContours<T extends RealType<T>> implements Command {
                 }
                 roisSize.add((double) j);
             }
-            writeToFile(idlRoisTemporalFilename, convertArrayListToString(roisSize));
+            writeToFile(idlRois, convertArrayListToString(roisSize));
             int i = 0;
             for (Roi roi : rois) {
                 if (DEBUG >= 3) {
@@ -228,8 +235,8 @@ public class ActiveContours<T extends RealType<T>> implements Command {
                     yCoords.add(p.getY());
                     j++;
                 }
-                writeToFile(idlRoisTemporalFilename, convertArrayListToString(xCoords));
-                writeToFile(idlRoisTemporalFilename, convertArrayListToString(yCoords));
+                writeToFile(idlRois, convertArrayListToString(xCoords));
+                writeToFile(idlRois, convertArrayListToString(yCoords));
                 i++;
             }
         } catch (NullPointerException exception) {
@@ -238,7 +245,7 @@ public class ActiveContours<T extends RealType<T>> implements Command {
     }
 
     private void setROIs() {
-        try (BufferedReader br = new BufferedReader(new FileReader(idlAdjustedRoisTemporalFilename))) {
+        try (BufferedReader br = new BufferedReader(new FileReader(tmpDir + idlAdjustedRoisTmpFile))) {
             String line;
             RoiManager roiManager = RoiManager.getInstance();
             if (roiManager == null) {
@@ -472,22 +479,22 @@ public class ActiveContours<T extends RealType<T>> implements Command {
             // Show the dialog
             loadingDialog.setVisible(true);
 
-            newfile(idlParametersTemporalFilename);
-            writeToFile(idlParametersTemporalFilename, currentParameters.getParameter("alpha").toString());
-            writeToFile(idlParametersTemporalFilename, currentParameters.getParameter("beta").toString());
-            writeToFile(idlParametersTemporalFilename, currentParameters.getParameter("gamma").toString());
-            writeToFile(idlParametersTemporalFilename, currentParameters.getParameter("kappa").toString());
-            writeToFile(idlParametersTemporalFilename, currentParameters.getParameter("mu").toString());
-            writeToFile(idlParametersTemporalFilename, currentParameters.getParameter("iterations").toString());
-            writeToFile(idlParametersTemporalFilename, currentParameters.getParameter("iterationsVF").toString());
+            File idlParameters = newFile(tmpDir, idlParametersTmpFile);
+            writeToFile(idlParameters, currentParameters.getParameter("alpha").toString());
+            writeToFile(idlParameters, currentParameters.getParameter("beta").toString());
+            writeToFile(idlParameters, currentParameters.getParameter("gamma").toString());
+            writeToFile(idlParameters, currentParameters.getParameter("kappa").toString());
+            writeToFile(idlParameters, currentParameters.getParameter("mu").toString());
+            writeToFile(idlParameters, currentParameters.getParameter("iterations").toString());
+            writeToFile(idlParameters, currentParameters.getParameter("iterationsVF").toString());
 
-            newfile(idlImageTemporalFilename);
+            File idlImage = newFile(tmpDir, idlImageTmpFile);
 
             int width = (int) image.dimension(0);
             int height = (int) image.dimension(1);
 
-            writeToFile(idlImageTemporalFilename, String.valueOf(width));
-            writeToFile(idlImageTemporalFilename, String.valueOf(height));
+            writeToFile(idlImage, String.valueOf(width));
+            writeToFile(idlImage, String.valueOf(height));
 
             for (int y = 0; y < height; y++) {
                 ArrayList<Double> row = new ArrayList<>();
@@ -498,7 +505,7 @@ public class ActiveContours<T extends RealType<T>> implements Command {
                     double value = randomAccess.get().getRealDouble();
                     row.add(value);
                 }
-                writeToFile(idlImageTemporalFilename, convertArrayListToString(row));
+                writeToFile(idlImage, convertArrayListToString(row));
             }
 
             getROIs();
