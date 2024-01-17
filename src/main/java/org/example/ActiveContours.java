@@ -21,6 +21,9 @@ import java.awt.event.ActionListener;
 import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 
 import static org.example.CamelCaseConverter.toCapitalized;
@@ -513,6 +516,34 @@ public class ActiveContours<T extends RealType<T>> implements Command {
             callToIDL();
 
             setROIs();
+
+            try {
+                Files.deleteIfExists(Paths.get(tmpDir, idlImageTmpFile));
+            } catch (IOException ex) {
+                System.out.println("Image tmp file doesn't exist.");
+                ex.printStackTrace();
+            }
+
+            try {
+                Files.deleteIfExists(Paths.get(tmpDir, idlRoisTmpFile));
+            } catch (IOException ex) {
+                System.out.println("Rois tmp file doesn't exist.");
+                ex.printStackTrace();
+            }
+
+            try {
+                Files.deleteIfExists(Paths.get(tmpDir, idlParametersTmpFile));
+            } catch (IOException ex) {
+                System.out.println("Parameters tmp file doesn't exist.");
+                ex.printStackTrace();
+            }
+
+            try {
+                Files.deleteIfExists(Paths.get(tmpDir, idlAdjustedRoisTmpFile));
+            } catch (IOException ex) {
+                System.out.println("Adjusted rois tmp file doesn't exist.");
+                ex.printStackTrace();
+            }
 
             loadingDialog.dispose();
 
