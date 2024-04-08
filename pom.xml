@@ -11,7 +11,7 @@
         <relativePath/>
     </parent>
 
-    <groupId>org.example</groupId>
+    <groupId>cl.scian</groupId>
     <artifactId>ActiveContours</artifactId>
     <version>0.1.1-SNAPSHOT</version>
 

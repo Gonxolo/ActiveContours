@@ -1,4 +1,4 @@
-package org.example;
+package cl.scian;
 
 import ij.gui.Roi;
 import ij.plugin.frame.RoiManager;
@@ -26,7 +26,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 
-import static org.example.CamelCaseConverter.toCapitalized;
+import static cl.scian.CamelCaseConverter.toCapitalized;
 
 
 @Plugin(type = Command.class, menuPath = "Plugins>Segmentation>Active Contours")

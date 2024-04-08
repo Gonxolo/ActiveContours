@@ -1,4 +1,4 @@
-package org.example;
+package cl.scian;
 
 public class CamelCaseConverter {
 
@@ -9,7 +9,7 @@ public class CamelCaseConverter {
         String[] words = withSpaces.split("\\s");
         StringBuilder result = new StringBuilder();
         for (String word : words) {
-            if (word.length() > 0) {
+            if (!word.isEmpty()) {
                 result.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1)).append(" ");
             }
         }

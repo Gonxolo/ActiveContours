@@ -1,4 +1,4 @@
-package org.example;
+package cl.scian;
 
 import javax.swing.*;
 import java.awt.*;
